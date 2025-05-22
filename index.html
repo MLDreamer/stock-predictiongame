@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Price Prediction Game</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/recharts@2.8.0/umd/Recharts.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        const { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } = Recharts;
+
+        // Simple icons as text
+        const DollarSign = () => <span style={{fontSize: '20px'}}>💲</span>;
+        const TrendingUp = () => <span style={{fontSize: '16px'}}>📈</span>;
+
+        const StockPredictionGame = () => {
+          const [gameData, setGameData] = useState([]);
+          const [hiddenData, setHiddenData] = useState([]);
+          const [userGuess, setUserGuess] = useState('');
+          const [revealed, setRevealed] = useState(false);
+          const [score, setScore] = useState({ correct: 0, total: 0 });
+          const [currentStock, setCurrentStock] = useState('AAPL');
+
+          const stockData = {
+            AAPL: { name: 'Apple', color: '#1f77b4', pattern: 'growth' },
+            TSLA: { name: 'Tesla', color: '#ff7f0e', pattern: 'volatile' },
+            MSFT: { name: 'Microsoft', color: '#2ca02c', pattern: 'steady' },
+            AMZN: { name: 'Amazon', color: '#d62728', pattern: 'recovery' }
+          };
+
+          const generateStockData = (stockType) => {
+            const data = [];
+            const patterns = {
+              growth: (i) => 100 + i * 2 + Math.sin(i * 0.5) * 5 + (Math.random() - 0.5) * 8,
+              volatile: (i) => 200 + Math.sin(i * 0.3) * 30 + (Math.random() - 0.5) * 20,
+              steady: (i) => 150 + i * 0.5 + (Math.random() - 0.5) * 5,
+              recovery: (i) => 120 + Math.pow(i * 0.2, 1.5) + (Math.random() - 0.5) * 10
+            };
+
+            for (let i = 0; i < 20; i++) {
+              const price = Math.max(10, patterns[stockData[stockType].pattern](i));
+              data.push({
+                day: i + 1,
+                price: parseFloat(price.toFixed(2)),
+                label: `Day ${i + 1}`
+              });
+            }
+            return data;
+          };
+
+          const startNewGame = () => {
+            const stocks = Object.keys(stockData);
+            const randomStock = stocks[Math.floor(Math.random() * stocks.length)];
+            setCurrentStock(randomStock);
+            
+            const fullData = generateStockData(randomStock);
+            const visibleData = fullData.slice(0, 15);
+            const hiddenPart = fullData.slice(15);
+            
+            setGameData(visibleData);
+            setHiddenData(hiddenPart);
+            setRevealed(false);
+            setUserGuess('');
+          };
+
+          useEffect(() => {
+            startNewGame();
+          }, []);
+
+          const handleGuess = () => {
+            if (!userGuess) return;
+            
+            const actualPrice = hiddenData[hiddenData.length - 1].price;
+            const guessPrice = parseFloat(userGuess);
+            const accuracy = Math.abs(actualPrice - guessPrice) / actualPrice;
+            
+            setRevealed(true);
+            
+            if (accuracy <= 0.1) {
+              setScore(prev => ({ correct: prev.correct + 1, total: prev.total + 1 }));
+            } else {
+              setScore(prev => ({ ...prev, total: prev.total + 1 }));
+            }
+          };
+
+          const getAccuracy = () => {
+            if (!revealed || !userGuess) return null;
+            const actualPrice = hiddenData[hiddenData.length - 1].price;
+            const guessPrice = parseFloat(userGuess);
+            const accuracy = (1 - Math.abs(actualPrice - guessPrice) / actualPrice) * 100;
+            return Math.max(0, accuracy);
+          };
+
+          const chartData = revealed ? [...gameData, ...hiddenData] : gameData;
+          const currentStockInfo = stockData[currentStock];
+
+          return React.createElement('div', {
+            className: "w-full max-w-4xl mx-auto p-6 bg-white rounded-xl shadow-xl",
+            style: { background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)' }
+          }, [
+            React.createElement('div', { 
+              className: "text-center mb-6", 
+              key: "header" 
+            }, [
+              React.createElement('h1', {
+                className: "text-3xl font-bold text-gray-800 mb-2",
+                key: "title"
+              }, "📈 Can You Predict The Stock Price? 🎯"),
+              React.createElement('p', {
+                className: "text-lg text-gray-600",
+                key: "subtitle"
+              }, `Beat the AI! Guess where ${currentStockInfo.name} will be in 5 days`)
+            ]),
+
+            // Score Board
+            React.createElement('div', {
+              className: "flex justify-center gap-8 mb-6",
+              key: "scoreboard"
+            }, [
+              React.createElement('div', {
+                className: "bg-white p-4 rounded-lg shadow text-center",
+                key: "correct"
+              }, [
+                React.createElement('div', {
+                  className: "text-2xl font-bold text-green-600",
+                  key: "correct-num"
+                }, score.correct),
+                React.createElement('div', {
+                  className: "text-sm text-gray-600",
+                  key: "correct-label"
+                }, "Correct")
+              ]),
+              React.createElement('div', {
+                className: "bg-white p-4 rounded-lg shadow text-center",
+                key: "total"
+              }, [
+                React.createElement('div', {
+                  className: "text-2xl font-bold text-blue-600",
+                  key: "total-num"
+                }, score.total),
+                React.createElement('div', {
+                  className: "text-sm text-gray-600",
+                  key: "total-label"
+                }, "Total")
+              ]),
+              React.createElement('div', {
+                className: "bg-white p-4 rounded-lg shadow text-center",
+                key: "accuracy"
+              }, [
+                React.createElement('div', {
+                  className: "text-2xl font-bold text-purple-600",
+                  key: "accuracy-num"
+                }, `${score.total > 0 ? Math.round((score.correct / score.total) * 100) : 0}%`),
+                React.createElement('div', {
+                  className: "text-sm text-gray-600",
+                  key: "accuracy-label"
+                }, "Accuracy")
+              ])
+            ]),
+
+            // Stock Info
+            React.createElement('div', {
+              className: "bg-white p-4 rounded-lg shadow mb-6 text-center",
+              key: "stock-info"
+            }, [
+              React.createElement('div', {
+                className: "flex items-center justify-center gap-2 mb-2",
+                key: "stock-header"
+              }, [
+                React.createElement(DollarSign, { key: "dollar" }),
+                React.createElement('h2', {
+                  className: "text-xl font-bold",
+                  style: { color: currentStockInfo.color },
+                  key: "stock-name"
+                }, `${currentStock} - ${currentStockInfo.name}`)
+              ]),
+              React.createElement('div', {
+                className: "text-sm text-gray-600",
+                key: "current-price"
+              }, [
+                "Current Price: ",
+                React.createElement('span', {
+                  className: "font-bold",
+                  key: "price-value"
+                }, `$${gameData[gameData.length - 1]?.price || 0}`)
+              ])
+            ]),
+
+            // Chart
+            React.createElement('div', {
+              className: "bg-white p-4 rounded-lg shadow mb-6",
+              key: "chart"
+            }, 
+              React.createElement(ResponsiveContainer, {
+                width: "100%",
+                height: 300
+              },
+                React.createElement(LineChart, { data: chartData }, [
+                  React.createElement(CartesianGrid, {
+                    strokeDasharray: "3 3",
+                    opacity: 0.3,
+                    key: "grid"
+                  }),
+                  React.createElement(XAxis, {
+                    dataKey: "day",
+                    key: "xaxis"
+                  }),
+                  React.createElement(YAxis, {
+                    domain: ['dataMin - 10', 'dataMax + 10'],
+                    key: "yaxis"
+                  }),
+                  React.createElement(Tooltip, {
+                    formatter: (value) => [`$${value}`, 'Price'],
+                    labelFormatter: (label) => `Day ${label}`,
+                    key: "tooltip"
+                  }),
+                  React.createElement(Line, {
+                    type: "monotone",
+                    dataKey: "price",
+                    stroke: currentStockInfo.color,
+                    strokeWidth: 3,
+                    dot: { r: 4 },
+                    connectNulls: false,
+                    key: "main-line"
+                  }),
+                  revealed && React.createElement(Line, {
+                    type: "monotone",
+                    dataKey: "price",
+                    stroke: "#ff4444",
+                    strokeWidth: 3,
+                    strokeDasharray: "5 5",
+                    data: hiddenData,
+                    dot: { r: 4, fill: '#ff4444' },
+                    key: "hidden-line"
+                  })
+                ])
+              )
+            ),
+
+            // Prediction Input or Results
+            !revealed ? 
+              React.createElement('div', {
+                className: "bg-white p-6 rounded-lg shadow text-center",
+                key: "input"
+              }, [
+                React.createElement('h3', {
+                  className: "text-lg font-semibold mb-4",
+                  key: "input-title"
+                }, "🔮 What will the price be on Day 20?"),
+                React.createElement('div', {
+                  className: "flex items-center justify-center gap-4",
+                  key: "input-controls"
+                }, [
+                  React.createElement('div', {
+                    className: "flex items-center gap-2",
+                    key: "input-group"
+                  }, [
+                    React.createElement(DollarSign, { key: "input-dollar" }),
+                    React.createElement('input', {
+                      type: "number",
+                      value: userGuess,
+                      onChange: (e) => setUserGuess(e.target.value),
+                      placeholder: "Enter your prediction",
+                      className: "border-2 border-gray-300 rounded-lg px-3 py-2 text-center text-lg font-semibold",
+                      step: "0.01",
+                      key: "input-field"
+                    })
+                  ]),
+                  React.createElement('button', {
+                    onClick: handleGuess,
+                    disabled: !userGuess,
+                    className: "bg-blue-500 text-white px-6 py-2 rounded-lg font-semibold hover:bg-blue-600 disabled:bg-gray-300",
+                    key: "predict-button"
+                  }, "Predict! 🎯")
+                ])
+              ])
+            :
+              React.createElement('div', {
+                className: "bg-white p-6 rounded-lg shadow text-center",
+                key: "results"
+              }, [
+                React.createElement('h3', {
+                  className: "text-lg font-semibold mb-4",
+                  key: "results-title"
+                }, "📊 Results"),
+                React.createElement('div', {
+                  className: "grid grid-cols-1 md:grid-cols-3 gap-4 mb-4",
+                  key: "results-grid"
+                }, [
+                  React.createElement('div', {
+                    className: "p-3 bg-blue-50 rounded",
+                    key: "your-guess"
+                  }, [
+                    React.createElement('div', {
+                      className: "text-sm text-gray-600",
+                      key: "guess-label"
+                    }, "Your Guess"),
+                    React.createElement('div', {
+                      className: "text-xl font-bold text-blue-600",
+                      key: "guess-value"
+                    }, `$${userGuess}`)
+                  ]),
+                  React.createElement('div', {
+                    className: "p-3 bg-green-50 rounded",
+                    key: "actual-price"
+                  }, [
+                    React.createElement('div', {
+                      className: "text-sm text-gray-600",
+                      key: "actual-label"
+                    }, "Actual Price"),
+                    React.createElement('div', {
+                      className: "text-xl font-bold text-green-600",
+                      key: "actual-value"
+                    }, `$${hiddenData[hiddenData.length - 1]?.price}`)
+                  ]),
+                  React.createElement('div', {
+                    className: "p-3 bg-purple-50 rounded",
+                    key: "your-accuracy"
+                  }, [
+                    React.createElement('div', {
+                      className: "text-sm text-gray-600",
+                      key: "accuracy-label-result"
+                    }, "Your Accuracy"),
+                    React.createElement('div', {
+                      className: "text-xl font-bold text-purple-600",
+                      key: "accuracy-value-result"
+                    }, `${getAccuracy()?.toFixed(1)}%`)
+                  ])
+                ]),
+                React.createElement('button', {
+                  onClick: startNewGame,
+                  className: "bg-green-500 text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-600",
+                  key: "play-again"
+                }, "🎮 Play Again!")
+              ]),
+
+            // Fun Facts
+            React.createElement('div', {
+              className: "mt-6 bg-white p-4 rounded-lg shadow",
+              key: "fun-facts"
+            }, [
+              React.createElement('h4', {
+                className: "font-semibold text-gray-800 mb-2",
+                key: "fact-title"
+              }, "🧠 Did You Know?"),
+              React.createElement('p', {
+                className: "text-sm text-gray-600",
+                key: "fact-text"
+              }, "Professional traders use exponential smoothing, ARIMA, and ML models for predictions. Even they only get 55-60% accuracy! How are you doing? 🤔")
+            ])
+          ]);
+        };
+
+        ReactDOM.render(React.createElement(StockPredictionGame), document.getElementById('root'));
+    </script>
+</body>
+</html>
